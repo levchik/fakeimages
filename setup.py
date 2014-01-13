@@ -2,7 +2,7 @@ from setuptools import setup, find_packages
 
 setup(
     name='fakeimages',
-    version='0.1.0',
+    version='0.1.1',
     author='Lev Rubel',
     author_email='rubel.lev@gmail.com',
     packages=find_packages(),
@@ -12,7 +12,7 @@ setup(
     package_dir={'fakeimages': 'fakeimages'},
     include_package_data=True,
     description='Placeholder images manipulating library.',
-    install_requires=[],
+    install_requires=['Pillow==2.2.2', 'requests==1.2.3'],
     zip_safe=False,
     classifiers=[
         'Development Status :: 2 - Pre-Alpha',
