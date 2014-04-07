@@ -1,39 +1,14 @@
 # -*- coding: utf-8 -*-
+try:
+    import urlparse
+except ImportError:
+    import urllib.parse as urlparse
 
-"""
-|  ______   ______     __  __     ______                               |
-| /\  ___\ /\  __ \   /\ \/ /    /\  ___\                              |
-| \ \  __\ \ \  __ \  \ \  _"-.  \ \  __\                              |
-|  \ \_\    \ \_\ \_\  \ \_\ \_\  \ \_____\                            |
-|   \/_/     \/_/\/_/   \/_/\/_/   \/_____/                            |
-|                                                                      |
-|       __     __    __     ______     ______     ______     ______    |
-|      /\ \   /\ "-./  \   /\  __ \   /\  ___\   /\  ___\   /\  ___\   |
-|      \ \ \  \ \ \-./\ \  \ \  __ \  \ \ \__ \  \ \  __\   \ \___  \  |
-|       \ \_\  \ \_\ \ \_\  \ \_\ \_\  \ \_____\  \ \_____\  \/\_____\ |
-|        \/_/   \/_/  \/_/   \/_/\/_/   \/_____/   \/_____/   \/_____/ |
-
-"""
-
-__title__ = 'fakeimages'
-__version__ = '0.1.1'
-__build__ = 0x011
-__author__ = 'Lev Rubel'
-__license__ = 'Apache 2.0'
-__copyright__ = 'Copyright 2013 Lev Rubel'
-
-import urlparse
-import requests
-
-from StringIO import StringIO
-from PIL import Image
+from .base import BaseImage, BaseSettings
+from .exceptions import SchemeNotAllowed
 
 
-class SchemeNotAllowed(Exception):
-    pass
-
-
-class FakeImageSettings(object):
+class FakeImageSettings(BaseSettings):
     """
     Settings class represents basic settings required to make API calls.
     FakeImage server settings:
@@ -50,43 +25,25 @@ class FakeImageSettings(object):
         self.port = port
         self.url = self._construct_url(*args)
 
-    def _construct_url(self, *args):
-        """
-        *Should not be called directly*
-        Construct full url from protocol, address and port.
-        Netloc string is unicode wrapped to ensure internationalized domain
-        names are processed correctly.
-        The urlunparse function argument takes only six-item iterable,
-        so we need to add necessary amount of empty elements.
-        """
-        netloc = u'{}:{}'.format(self.address, self.port)
-        base_params = [self.scheme, netloc]
-        optional_params = list(args) + list('' for _ in xrange(4 - len(args)))
-        return urlparse.urlunparse(base_params + optional_params)
-
     def __repr__(self):
         return 'FakeImageSettings Object <{}>'.format(self.url)
 
 
-class FakeImage(object):
+class FakeImage(BaseImage):
     """
     FakeImage class represents the actual image received from server
     """
-    __slots__ = ['width', 'text', 'font', 'font_size', 'retina', 'height', 'bg_color', 'text_color', 'size', 'response', 'settings', 'content']
-
-    def __init__(self, width, settings=None, *args, **kwargs):
-        for slot in self.__slots__:
-            setattr(self, slot, None)
-        self.settings = settings or FakeImageSettings()
-        self.width = width
-        self.response = self.get(width, *args, **kwargs)
+    __slots__ = ['width', 'text', 'font', 'font_size',
+                 'retina', 'height', 'bg_color', 'text_color',
+                 'size', 'response', 'settings', 'content']
 
     def get(self, width=None, height=None, bg_color=None, text_color=None,
-            text=None, font=None, font_size=None, retina=False):
+            text=None, font=None, font_size=None, retina=False, settings=None):
         """
         Get the image from the fakeimage server.
         The only required parameter to make a call to server is 'width'.
         """
+        self.settings = settings or FakeImageSettings()
         self.width = width or self.width
         self.text = text or self.text
         self.font = font or self.font
@@ -109,36 +66,11 @@ class FakeImage(object):
         self.content = self.response.content
         return self.response
 
-    def urljoin(self, *args):
-        """
-        Joins given arguments into a url.
-        Trailing but not leading slashes are stripped for each argument.
-        """
-        return '/'.join(str(s).strip('/') for s in args if s)
-
-    def _construct_url(self):
+    def construct_url(self):
         return urlparse.urljoin(
             self.settings.url,
             self.urljoin(self.size, self.bg_color, self.text_color)
         )
-
-    def _response(self, params):
-        http_error_msg = 'Can\'t get such image from server: Status code is {}'
-        response = requests.get(self._construct_url(), params=params)
-        try:
-            response.raise_for_status()
-        except requests.exceptions.HTTPError as exception:
-            raise requests.exceptions.HTTPError(
-                http_error_msg.format(exception.response.status_code))
-        return response
-
-    def save(self, path, format=None):
-        """
-        Saves response file with the following settings:
-            path: path to the file, where to save the image
-            format: format of output image file (i.e. 'png', 'jpg', 'gif', etc.)
-        """
-        return Image.open(StringIO(self.response.content)).save(path, format)
 
     def __repr__(self):
         return 'FakeImage Object <{}>'.format(self.response.url)
